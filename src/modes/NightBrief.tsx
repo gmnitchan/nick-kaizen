@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAppState, getOrCreateBrief, updateBrief, addTask, addTaskToBrief, getCarryoverTasks, carryTaskToBrief, deleteTask, getActiveSprints, updateTask } from "../state/store";
 import { tomorrowStr } from "../lib/date";
-import type { Sprint, Task } from "../state/types";
+import type { Task } from "../state/types";
 import BrainDump from "../components/BrainDump";
 import HighlightInput from "../components/HighlightInput";
 
@@ -9,7 +9,6 @@ export default function NightBrief() {
   const state = useAppState();
   const date = tomorrowStr();
   const brief = state.briefs[date] || getOrCreateBrief(date);
-  const [showBrainParse, setShowBrainParse] = useState(false);
   const [showCarryover, setShowCarryover] = useState(true);
   const [selectedSprint, setSelectedSprint] = useState<string | null>(null);
 
@@ -43,16 +42,6 @@ export default function NightBrief() {
 
   const totalTasks = brief.taskIds.length;
   const currentSprint = selectedSprint || (activeSprints.length > 0 ? activeSprints[0].id : null);
-
-  const brainLines = brief.brainDump
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  function sendToBrief(line: string, sprint: Sprint) {
-    const task = addTask(line, sprint);
-    addTaskToBrief(date, task.id);
-  }
 
   function handleCarryTask(taskId: string) {
     carryTaskToBrief(date, taskId);
@@ -172,7 +161,7 @@ export default function NightBrief() {
           </label>
         </div>
         <p className="text-text-dim text-xs mb-3 ml-7">
-          Get everything out of your head. Type or use the mic button to speak. Each line can become a task later.
+          Get everything out of your head. Type or use the mic button to speak. Not everything here needs to be a task.
         </p>
         <BrainDump
           value={brief.brainDump}
@@ -207,42 +196,7 @@ export default function NightBrief() {
         </div>
         <p className="text-text-dim text-xs mb-3 ml-7">
           Pick a sprint tab, then add tasks. Switch tabs to add tasks to other sprints.
-          {brainLines.length === 0 && " Or write your brain dump first, then pull lines from it."}
         </p>
-
-        {brainLines.length > 0 && (
-          <div className="ml-7 mb-3">
-            <button
-              onClick={() => setShowBrainParse(!showBrainParse)}
-              className="text-xs text-accent hover:text-accent-dim border border-accent/30 rounded px-2 py-1"
-            >
-              {showBrainParse ? "Hide brain dump lines" : "Pull lines from brain dump into tasks"}
-            </button>
-          </div>
-        )}
-
-        {showBrainParse && (
-          <div className="bg-surface border border-border rounded-lg p-3 mb-4 space-y-1">
-            <p className="text-text-dim text-xs mb-2">Click a line, then pick a sprint to add it as a task:</p>
-            {brainLines.map((line, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm group">
-                <span className="flex-1 text-text-dim">{line}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
-                  {activeSprints.map((sp) => (
-                    <button
-                      key={sp.id}
-                      onClick={() => sendToBrief(line, sp.id)}
-                      className="text-xs px-1.5 py-0.5 rounded bg-bg hover:bg-surface-hover border border-border"
-                      title={`Add to ${sp.label}`}
-                    >
-                      {sp.emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Sprint tabs */}
         <div className="flex gap-1 mb-3 flex-wrap">
@@ -334,7 +288,6 @@ function SprintTaskPanel({ sprint, tasks, onAddTask, activeSprints }: {
 
   return (
     <div className="bg-surface border border-border rounded-lg p-4">
-      {/* Task list */}
       <div className="space-y-2 mb-3">
         {tasks.length === 0 && (
           <p className="text-text-dim text-sm text-center py-4">No tasks yet. Add one below.</p>
@@ -349,7 +302,6 @@ function SprintTaskPanel({ sprint, tasks, onAddTask, activeSprints }: {
               onChange={(e) => handleEstimate(task.id, e.target.value)}
               className="w-20 bg-surface border border-border rounded px-2 py-1 text-xs text-center text-text-dim focus:outline-none focus:border-accent"
             />
-            {/* Move to another sprint */}
             <select
               value=""
               onChange={(e) => { if (e.target.value) handleMoveTo(task.id, e.target.value); }}
@@ -370,7 +322,6 @@ function SprintTaskPanel({ sprint, tasks, onAddTask, activeSprints }: {
         ))}
       </div>
 
-      {/* Add task input */}
       <input
         type="text"
         value={newText}

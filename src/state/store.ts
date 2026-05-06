@@ -52,6 +52,8 @@ function loadState(): AppState {
 
 let state = loadState();
 const listeners = new Set<() => void>();
+const undoStack: AppState[] = [];
+const MAX_UNDO = 50;
 
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -59,8 +61,22 @@ function persist() {
 }
 
 function update(fn: (s: AppState) => AppState) {
+  undoStack.push(state);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
   state = fn(state);
   persist();
+}
+
+export function undo(): boolean {
+  const prev = undoStack.pop();
+  if (!prev) return false;
+  state = prev;
+  persist();
+  return true;
+}
+
+export function canUndo(): boolean {
+  return undoStack.length > 0;
 }
 
 export function getState(): AppState {

@@ -67,6 +67,7 @@ export default function App() {
       {mode === "sprint_board" && <SprintBoard onExit={() => setMode("morning_launch")} />}
       {mode === "stats" && <StatsView />}
       {mode === "sprint_settings" && <SprintSettings />}
+      {mode === "welcome" && <Welcome onDismiss={() => setMode("morning_launch")} />}
     </div>
   );
 }

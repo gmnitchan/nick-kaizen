@@ -1,4 +1,4 @@
-export type Mode = "night_brief" | "morning_launch" | "sprint_board" | "stats" | "sprint_settings";
+export type Mode = "night_brief" | "morning_launch" | "sprint_board" | "stats" | "sprint_settings" | "welcome";
 
 const MODE_LABELS: Record<Mode, string> = {
   night_brief: "Night Brief",
@@ -6,6 +6,7 @@ const MODE_LABELS: Record<Mode, string> = {
   sprint_board: "Sprint Board",
   stats: "Stats",
   sprint_settings: "Sprint Settings",
+  welcome: "Welcome Guide",
 };
 
 type Props = {

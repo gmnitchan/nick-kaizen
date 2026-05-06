@@ -164,7 +164,7 @@ export default function StatsView() {
         </div>
       )}
 
-      {/* Export/Import */}
+      {/* Export/Import/Reset */}
       <div className="flex gap-4 justify-center mt-12">
         <button
           onClick={handleExport}
@@ -177,6 +177,20 @@ export default function StatsView() {
           className="px-4 py-2 bg-surface border border-border rounded-lg text-sm hover:border-accent"
         >
           Import backup
+        </button>
+      </div>
+      <div className="flex justify-center mt-6">
+        <button
+          onClick={() => {
+            if (confirm("This will permanently delete ALL your data (tasks, briefs, stats, sprints) and reset the app. Are you sure?")) {
+              localStorage.removeItem("nick_kaizen_state_v1");
+              localStorage.removeItem("nick_kaizen_welcomed");
+              location.reload();
+            }
+          }}
+          className="text-xs text-red hover:text-red/80"
+        >
+          Reset all data
         </button>
       </div>
     </div>

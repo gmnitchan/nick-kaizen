@@ -2,7 +2,11 @@
 
 ## Planned
 
-(nothing yet)
+### Night Brief Step 3 — Sprint columns are too cramped
+- The "Add task" input boxes and task cards in the sprint allocation columns are way too small
+- With 6 sprints side by side, each column gets squeezed to ~100px which is unusable
+- Task text gets truncated/invisible once added — card is too narrow to show the text
+- Options: make columns wider and allow horizontal scroll, stack in 2 rows of 3, or use a tab/accordion layout instead of showing all at once
 
 ## Completed
 

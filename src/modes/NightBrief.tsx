@@ -18,12 +18,7 @@ export default function NightBrief() {
   const [showCarryover, setShowCarryover] = useState(true);
 
   const tasksBySprint = useMemo(() => {
-    const result: Record<Sprint, typeof state.tasks[string][]> = {
-      soberin_revenue: [],
-      outreach: [],
-      build_mode: [],
-      admin: [],
-    };
+    const result = Object.fromEntries(ALL_SPRINTS.map((s) => [s, [] as typeof state.tasks[string][]])) as Record<Sprint, typeof state.tasks[string][]>;
     for (const id of brief.taskIds) {
       const task = state.tasks[id];
       if (task && task.status !== "skipped") {
@@ -36,12 +31,7 @@ export default function NightBrief() {
   const carryoverTasks = useMemo(() => getCarryoverTasks(date), [state.tasks, state.briefs, date]);
 
   const carryoverBySprint = useMemo(() => {
-    const result: Record<Sprint, typeof carryoverTasks> = {
-      soberin_revenue: [],
-      outreach: [],
-      build_mode: [],
-      admin: [],
-    };
+    const result = Object.fromEntries(ALL_SPRINTS.map((s) => [s, [] as typeof carryoverTasks])) as Record<Sprint, typeof carryoverTasks>;
     for (const task of carryoverTasks) {
       result[task.sprint].push(task);
     }

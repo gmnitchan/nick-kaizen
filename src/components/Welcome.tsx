@@ -44,21 +44,25 @@ export default function Welcome({ onDismiss }: Props) {
         </div>
 
         <div className="mb-8">
-          <h3 className="text-sm text-text-dim uppercase tracking-wider mb-3">The 4 sprints</h3>
+          <h3 className="text-sm text-text-dim uppercase tracking-wider mb-3">The 5 sprints</h3>
           <div className="grid grid-cols-2 gap-3 text-left">
             <div className="bg-surface rounded-lg p-3">
               <div className="font-medium mb-1">🔥 Soberin Revenue</div>
               <p className="text-text-dim text-xs">Vibe coding, software services, immediate $</p>
             </div>
             <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">📞 Outreach</div>
-              <p className="text-text-dim text-xs">Clients, investors, networking, collaborators</p>
+              <div className="font-medium mb-1">🚀 Chief Challengers</div>
+              <p className="text-text-dim text-xs">Everything to build the product</p>
             </div>
             <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">🛠️ Build Mode</div>
-              <p className="text-text-dim text-xs">Deep work, prototypes, creative, side projects</p>
+              <div className="font-medium mb-1">🎤 Personal Brand</div>
+              <p className="text-text-dim text-xs">Content creation, set up meetings, hustle</p>
             </div>
             <div className="bg-surface rounded-lg p-3">
+              <div className="font-medium mb-1">🎓 Elite Admit</div>
+              <p className="text-text-dim text-xs">Complete Gut's application</p>
+            </div>
+            <div className="bg-surface rounded-lg p-3 col-span-2">
               <div className="font-medium mb-1">📋 Admin</div>
               <p className="text-text-dim text-xs">Emails, follow-ups, paperwork, the avoided stuff</p>
             </div>

@@ -1,4 +1,4 @@
-export type Sprint = "soberin_revenue" | "outreach" | "build_mode" | "admin";
+export type Sprint = "soberin_revenue" | "chief_challengers" | "personal_brand" | "elite_admit" | "admin";
 
 export type Task = {
   id: string;

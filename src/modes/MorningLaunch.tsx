@@ -29,7 +29,7 @@ export default function MorningLaunch({ onStartSprint }: Props) {
   }, [state.briefs]);
 
   const taskCounts = useMemo(() => {
-    const counts: Record<Sprint, number> = { soberin_revenue: 0, outreach: 0, build_mode: 0, admin: 0 };
+    const counts = Object.fromEntries(ALL_SPRINTS.map((s) => [s, 0])) as Record<Sprint, number>;
     if (!brief) return counts;
     for (const id of brief.taskIds) {
       const task = state.tasks[id];

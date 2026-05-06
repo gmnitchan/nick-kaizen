@@ -1,9 +1,7 @@
 import { useState, useMemo } from "react";
-import { useAppState, getOrCreateBrief, updateBrief, addTask, addTaskToBrief, moveTaskToSprint, getCarryoverTasks, carryTaskToBrief, deleteTask } from "../state/store";
+import { useAppState, getOrCreateBrief, updateBrief, addTask, addTaskToBrief, moveTaskToSprint, getCarryoverTasks, carryTaskToBrief, deleteTask, getActiveSprints } from "../state/store";
 import { tomorrowStr } from "../lib/date";
-import { ALL_SPRINTS } from "../lib/sprints";
-import { SPRINT_META } from "../lib/sprints";
-import type { Sprint } from "../state/types";
+import type { Sprint, Task } from "../state/types";
 import BrainDump from "../components/BrainDump";
 import HighlightInput from "../components/HighlightInput";
 import SprintColumn from "../components/SprintColumn";
@@ -17,26 +15,33 @@ export default function NightBrief() {
   const [showBrainParse, setShowBrainParse] = useState(false);
   const [showCarryover, setShowCarryover] = useState(true);
 
+  const activeSprints = getActiveSprints();
+  const activeSprintIds = activeSprints.map((d) => d.id);
+
   const tasksBySprint = useMemo(() => {
-    const result = Object.fromEntries(ALL_SPRINTS.map((s) => [s, [] as typeof state.tasks[string][]])) as Record<Sprint, typeof state.tasks[string][]>;
+    const result: Record<string, Task[]> = {};
+    for (const id of activeSprintIds) result[id] = [];
     for (const id of brief.taskIds) {
       const task = state.tasks[id];
       if (task && task.status !== "skipped") {
+        if (!result[task.sprint]) result[task.sprint] = [];
         result[task.sprint].push(task);
       }
     }
     return result;
-  }, [state.tasks, brief.taskIds]);
+  }, [state.tasks, brief.taskIds, state.sprintDefs]);
 
   const carryoverTasks = useMemo(() => getCarryoverTasks(date), [state.tasks, state.briefs, date]);
 
   const carryoverBySprint = useMemo(() => {
-    const result = Object.fromEntries(ALL_SPRINTS.map((s) => [s, [] as typeof carryoverTasks])) as Record<Sprint, typeof carryoverTasks>;
+    const result: Record<string, Task[]> = {};
+    for (const id of activeSprintIds) result[id] = [];
     for (const task of carryoverTasks) {
+      if (!result[task.sprint]) result[task.sprint] = [];
       result[task.sprint].push(task);
     }
     return result;
-  }, [carryoverTasks]);
+  }, [carryoverTasks, state.sprintDefs]);
 
   const totalTasks = brief.taskIds.length;
 
@@ -86,7 +91,7 @@ export default function NightBrief() {
   }
 
   return (
-    <div className="max-w-[720px] mx-auto py-8 px-4">
+    <div className="max-w-[800px] mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-1 text-center">Night Brief</h1>
       <p className="text-text-dim text-sm text-center mb-8">
         Plan tomorrow in 5 minutes. Go top to bottom, then lock it in.
@@ -120,12 +125,13 @@ export default function NightBrief() {
             </div>
           </div>
 
-          {ALL_SPRINTS.map((sprint) => {
-            const tasks = carryoverBySprint[sprint];
+          {Object.entries(carryoverBySprint).map(([sprintId, tasks]) => {
             if (tasks.length === 0) return null;
+            const def = state.sprintDefs[sprintId];
+            const label = def ? `${def.emoji} ${def.label}` : sprintId;
             return (
-              <div key={sprint} className="mb-2">
-                <p className="text-xs text-text-dim mb-1">{SPRINT_META[sprint].emoji} {SPRINT_META[sprint].label}</p>
+              <div key={sprintId} className="mb-2">
+                <p className="text-xs text-text-dim mb-1">{label}</p>
                 <div className="space-y-1">
                   {tasks.map((task) => (
                     <div key={task.id} className="flex items-center gap-2 text-sm bg-bg rounded p-2 group">
@@ -231,14 +237,14 @@ export default function NightBrief() {
               <div key={i} className="flex items-center gap-2 text-sm group">
                 <span className="flex-1 truncate text-text-dim">{line}</span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                  {ALL_SPRINTS.map((sp) => (
+                  {activeSprints.map((sp) => (
                     <button
-                      key={sp}
-                      onClick={() => sendToBrief(line, sp)}
+                      key={sp.id}
+                      onClick={() => sendToBrief(line, sp.id)}
                       className="text-xs px-1.5 py-0.5 rounded bg-bg hover:bg-surface-hover border border-border"
-                      title={`Add to ${SPRINT_META[sp].label}`}
+                      title={`Add to ${sp.label}`}
                     >
-                      {SPRINT_META[sp].emoji}
+                      {sp.emoji}
                     </button>
                   ))}
                 </div>
@@ -247,16 +253,16 @@ export default function NightBrief() {
           </div>
         )}
 
-        <div className="flex gap-3">
-          {ALL_SPRINTS.map((sprint) => (
+        <div className="flex gap-3 overflow-x-auto">
+          {activeSprints.map((sp) => (
             <SprintColumn
-              key={sprint}
-              sprint={sprint}
-              tasks={tasksBySprint[sprint]}
+              key={sp.id}
+              sprint={sp.id}
+              tasks={tasksBySprint[sp.id] || []}
               briefDate={date}
               onDragStart={setDraggingTaskId}
               onDrop={handleDrop}
-              draggingOver={dragOverSprint === sprint}
+              draggingOver={dragOverSprint === sp.id}
             />
           ))}
         </div>

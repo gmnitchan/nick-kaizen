@@ -1,4 +1,13 @@
-export type Sprint = "soberin_revenue" | "chief_challengers" | "personal_brand" | "elite_admit" | "admin";
+export type Sprint = string;
+
+export type SprintDef = {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  status: "active" | "archived";
+  archivedAt: number | null;
+};
 
 export type Task = {
   id: string;
@@ -34,6 +43,7 @@ export type DayLog = {
 };
 
 export type AppState = {
+  sprintDefs: Record<string, SprintDef>;
   tasks: Record<string, Task>;
   briefs: Record<string, DailyBrief>;
   logs: Record<string, DayLog>;

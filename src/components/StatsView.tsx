@@ -1,18 +1,18 @@
 import { useMemo } from "react";
-import { useAppState, exportState, importState } from "../state/store";
+import { useAppState, exportState, importState, getActiveSprints, getSprintDef } from "../state/store";
 import { daysAgo, todayStr } from "../lib/date";
-import { ALL_SPRINTS, SPRINT_META } from "../lib/sprints";
 
 export default function StatsView() {
   const state = useAppState();
   const today = todayStr();
+  const activeSprints = getActiveSprints();
+  const allSprintIds = Object.keys(state.sprintDefs);
 
-  // Last 14 days dots
   const dots = useMemo(() => {
     return Array.from({ length: 14 }, (_, i) => {
       const date = daysAgo(13 - i);
       const log = state.logs[date];
-      if (!log?.laptopOpenedAt) return { date, color: "bg-border" }; // gray
+      if (!log?.laptopOpenedAt) return { date, color: "bg-border" };
       const openHour = new Date(log.laptopOpenedAt).getHours();
       if (openHour < 10) return { date, color: "bg-green" };
       if (openHour < 12) return { date, color: "bg-yellow" };
@@ -20,7 +20,6 @@ export default function StatsView() {
     });
   }, [state.logs]);
 
-  // Highlight completion rate
   const highlightRate = useMemo(() => {
     let total = 0;
     let completed = 0;
@@ -36,37 +35,37 @@ export default function StatsView() {
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   }, [state.logs, state.briefs]);
 
-  // Estimated vs actual per sprint
+  // Show stats for ALL sprints (active + archived) that have data
   const sprintStats = useMemo(() => {
-    return ALL_SPRINTS.map((sprint) => {
+    return allSprintIds.map((sprintId) => {
       let estTotal = 0;
       let actTotal = 0;
       Object.values(state.tasks).forEach((t) => {
-        if (t.sprint === sprint && t.status === "done") {
+        if (t.sprint === sprintId && t.status === "done") {
           if (t.estimatedMin) estTotal += t.estimatedMin;
           actTotal += t.actualMin;
         }
       });
-      return { sprint, estTotal, actTotal };
-    });
-  }, [state.tasks]);
+      return { sprintId, estTotal, actTotal };
+    }).filter((s) => s.estTotal > 0 || s.actTotal > 0);
+  }, [state.tasks, state.sprintDefs]);
 
   const maxTime = Math.max(...sprintStats.map((s) => Math.max(s.estTotal, s.actTotal)), 1);
 
-  // Most avoided sprint
   const mostAvoided = useMemo(() => {
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
     const counts: Record<string, number> = {};
-    ALL_SPRINTS.forEach((s) => (counts[s] = 0));
+    activeSprints.forEach((s) => (counts[s.id] = 0));
     Object.values(state.tasks).forEach((t) => {
-      if (t.status === "pending" && t.createdAt < threeDaysAgo) {
+      if (t.status === "pending" && t.createdAt < threeDaysAgo && counts[t.sprint] !== undefined) {
         counts[t.sprint]++;
       }
     });
     const max = Math.max(...Object.values(counts));
     if (max === 0) return null;
-    return ALL_SPRINTS.find((s) => counts[s] === max) || null;
-  }, [state.tasks]);
+    const id = Object.keys(counts).find((k) => counts[k] === max);
+    return id ? getSprintDef(id) : null;
+  }, [state.tasks, state.sprintDefs]);
 
   function handleExport() {
     const data = exportState();
@@ -122,24 +121,34 @@ export default function StatsView() {
       </div>
 
       {/* Est vs Actual */}
-      <div className="mb-8">
-        <h2 className="text-sm text-text-dim uppercase tracking-wider mb-3">Estimated vs Actual (completed tasks)</h2>
-        <div className="space-y-3">
-          {sprintStats.map(({ sprint, estTotal, actTotal }) => (
-            <div key={sprint}>
-              <div className="text-sm mb-1">{SPRINT_META[sprint].emoji} {SPRINT_META[sprint].label}</div>
-              <div className="flex gap-1 items-center">
-                <div className="h-4 bg-accent/30 rounded" style={{ width: `${(estTotal / maxTime) * 100}%`, minWidth: estTotal > 0 ? '4px' : 0 }} />
-                <span className="text-xs text-text-dim w-16">{estTotal.toFixed(0)}m est</span>
-              </div>
-              <div className="flex gap-1 items-center">
-                <div className="h-4 bg-accent rounded" style={{ width: `${(actTotal / maxTime) * 100}%`, minWidth: actTotal > 0 ? '4px' : 0 }} />
-                <span className="text-xs text-text-dim w-16">{actTotal.toFixed(0)}m act</span>
-              </div>
-            </div>
-          ))}
+      {sprintStats.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm text-text-dim uppercase tracking-wider mb-3">Estimated vs Actual (completed tasks)</h2>
+          <div className="space-y-3">
+            {sprintStats.map(({ sprintId, estTotal, actTotal }) => {
+              const def = getSprintDef(sprintId);
+              const label = def ? `${def.emoji} ${def.label}` : sprintId;
+              const isArchived = def?.status === "archived";
+              return (
+                <div key={sprintId}>
+                  <div className="text-sm mb-1">
+                    {label}
+                    {isArchived && <span className="text-text-dim text-xs ml-2">(archived)</span>}
+                  </div>
+                  <div className="flex gap-1 items-center">
+                    <div className="h-4 bg-accent/30 rounded" style={{ width: `${(estTotal / maxTime) * 100}%`, minWidth: estTotal > 0 ? '4px' : 0 }} />
+                    <span className="text-xs text-text-dim w-16">{estTotal.toFixed(0)}m est</span>
+                  </div>
+                  <div className="flex gap-1 items-center">
+                    <div className="h-4 bg-accent rounded" style={{ width: `${(actTotal / maxTime) * 100}%`, minWidth: actTotal > 0 ? '4px' : 0 }} />
+                    <span className="text-xs text-text-dim w-16">{actTotal.toFixed(0)}m act</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Highlight rate */}
       <div className="mb-8">
@@ -151,7 +160,7 @@ export default function StatsView() {
       {mostAvoided && (
         <div className="mb-8">
           <h2 className="text-sm text-text-dim uppercase tracking-wider mb-2">Most avoided sprint</h2>
-          <p className="text-lg">{SPRINT_META[mostAvoided].emoji} {SPRINT_META[mostAvoided].label}</p>
+          <p className="text-lg">{mostAvoided.emoji} {mostAvoided.label}</p>
         </div>
       )}
 

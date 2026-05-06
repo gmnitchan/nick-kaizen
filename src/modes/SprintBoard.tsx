@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateLog, getOrCreateLog } from "../state/store";
+import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateLog, getOrCreateLog, getActiveSprints, getSprintDef } from "../state/store";
 import { todayStr } from "../lib/date";
-import { SPRINT_META, ALL_SPRINTS } from "../lib/sprints";
 import type { Sprint } from "../state/types";
 import TaskRow from "../components/TaskRow";
 import Timer from "../components/Timer";
@@ -17,6 +16,7 @@ export default function SprintBoard({ onExit }: Props) {
   const brief = state.briefs[today];
   const [newText, setNewText] = useState("");
   const lastTickRef = useRef(Date.now());
+  const activeSprints = getActiveSprints();
 
   useEffect(() => {
     if (!activeTaskId || !startedAt) return;
@@ -78,7 +78,7 @@ export default function SprintBoard({ onExit }: Props) {
     );
   }
 
-  const meta = SPRINT_META[sprint];
+  const def = getSprintDef(sprint);
 
   return (
     <div className="max-w-[720px] mx-auto py-8 px-4">
@@ -86,19 +86,19 @@ export default function SprintBoard({ onExit }: Props) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">
-            {meta.emoji} {meta.label}
+            {def?.emoji} {def?.label ?? sprint}
           </h1>
           <Timer startedAt={startedAt} />
         </div>
         <div className="flex gap-2">
           <select
             value={sprint}
-            onChange={(e) => handleSwitchSprint(e.target.value as Sprint)}
+            onChange={(e) => handleSwitchSprint(e.target.value)}
             className="bg-surface border border-border rounded px-2 py-1 text-sm text-text-dim focus:outline-none cursor-pointer"
           >
-            {ALL_SPRINTS.map((s) => (
-              <option key={s} value={s}>
-                {SPRINT_META[s].emoji} {SPRINT_META[s].label}
+            {activeSprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.emoji} {s.label}
               </option>
             ))}
           </select>

@@ -1,10 +1,20 @@
 import { useSyncExternalStore } from "react";
-import type { AppState, Task, DailyBrief, DayLog, Sprint } from "./types";
+import type { AppState, Task, DailyBrief, DayLog, Sprint, SprintDef } from "./types";
+import { DEFAULT_SPRINTS } from "../lib/sprints";
 
 const STORAGE_KEY = "nick_kaizen_state_v1";
 
+function defaultSprintDefs(): Record<string, SprintDef> {
+  const defs: Record<string, SprintDef> = {};
+  for (const d of DEFAULT_SPRINTS) {
+    defs[d.id] = d;
+  }
+  return defs;
+}
+
 function defaultState(): AppState {
   return {
+    sprintDefs: defaultSprintDefs(),
     tasks: {},
     briefs: {},
     logs: {},
@@ -16,10 +26,18 @@ function defaultState(): AppState {
   };
 }
 
+function migrateState(raw: AppState): AppState {
+  // Add sprintDefs if missing (upgrading from old data)
+  if (!raw.sprintDefs) {
+    raw.sprintDefs = defaultSprintDefs();
+  }
+  return raw;
+}
+
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as AppState;
+    if (raw) return migrateState(JSON.parse(raw) as AppState);
   } catch {
     // corrupted — start fresh
   }
@@ -58,6 +76,48 @@ export function useAppState(): AppState {
   );
 }
 
+// ---- Sprint helpers ----
+
+export function getActiveSprints(): SprintDef[] {
+  return Object.values(state.sprintDefs).filter((d) => d.status === "active");
+}
+
+export function getActiveSprintIds(): string[] {
+  return getActiveSprints().map((d) => d.id);
+}
+
+export function getArchivedSprints(): SprintDef[] {
+  return Object.values(state.sprintDefs).filter((d) => d.status === "archived");
+}
+
+export function getSprintDef(id: string): SprintDef | undefined {
+  return state.sprintDefs[id];
+}
+
+// ---- Sprint management ----
+
+export function addSprintDef(label: string, emoji: string, description: string): SprintDef {
+  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  const def: SprintDef = { id, label, emoji, description, status: "active", archivedAt: null };
+  update((s) => ({ ...s, sprintDefs: { ...s.sprintDefs, [id]: def } }));
+  return def;
+}
+
+export function updateSprintDef(id: string, patch: Partial<SprintDef>) {
+  update((s) => ({
+    ...s,
+    sprintDefs: { ...s.sprintDefs, [id]: { ...s.sprintDefs[id], ...patch } },
+  }));
+}
+
+export function archiveSprint(id: string) {
+  updateSprintDef(id, { status: "archived", archivedAt: Date.now() });
+}
+
+export function restoreSprint(id: string) {
+  updateSprintDef(id, { status: "active", archivedAt: null });
+}
+
 // ---- Task actions ----
 
 export function addTask(text: string, sprint: Sprint, estimatedMin: number | null = null): Task {
@@ -85,7 +145,6 @@ export function updateTask(id: string, patch: Partial<Task>) {
 export function deleteTask(id: string) {
   update((s) => {
     const { [id]: _, ...rest } = s.tasks;
-    // Also remove from any brief taskIds
     const briefs = { ...s.briefs };
     for (const key in briefs) {
       const b = briefs[key];
@@ -202,18 +261,14 @@ export function endSprintTimer(date: string) {
   }));
 }
 
-// ---- Carryover: find unfinished tasks from previous briefs ----
+// ---- Carryover ----
 
 export function getCarryoverTasks(targetDate: string): Task[] {
-  // Collect all task IDs already in the target brief
   const targetBrief = state.briefs[targetDate];
   const alreadyInBrief = new Set(targetBrief?.taskIds || []);
-
-  // Find all pending tasks from any previous brief
   const seen = new Set<string>();
   const carryover: Task[] = [];
 
-  // Check all briefs before the target date
   const sortedDates = Object.keys(state.briefs).sort().reverse();
   for (const date of sortedDates) {
     if (date >= targetDate) continue;
@@ -234,6 +289,8 @@ export function getCarryoverTasks(targetDate: string): Task[] {
 export function carryTaskToBrief(date: string, taskId: string) {
   addTaskToBrief(date, taskId);
 }
+
+// ---- Export/Import ----
 
 export function exportState(): string {
   return JSON.stringify(state, null, 2);

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Sprint, Task } from "../state/types";
-import { SPRINT_META } from "../lib/sprints";
-import { addTask, deleteTask, updateTask, addTaskToBrief } from "../state/store";
+import { addTask, deleteTask, updateTask, addTaskToBrief, getSprintDef } from "../state/store";
 
 type Props = {
   sprint: Sprint;
@@ -14,7 +13,7 @@ type Props = {
 
 export default function SprintColumn({ sprint, tasks, briefDate, onDragStart, onDrop, draggingOver }: Props) {
   const [newText, setNewText] = useState("");
-  const meta = SPRINT_META[sprint];
+  const def = getSprintDef(sprint);
 
   function handleAdd() {
     const text = newText.trim();
@@ -31,12 +30,12 @@ export default function SprintColumn({ sprint, tasks, briefDate, onDragStart, on
 
   return (
     <div
-      className={`flex-1 min-w-0 bg-surface rounded-lg p-3 border ${draggingOver ? "border-accent" : "border-border"}`}
+      className={`flex-1 min-w-[130px] bg-surface rounded-lg p-3 border ${draggingOver ? "border-accent" : "border-border"}`}
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={(e) => { e.preventDefault(); onDrop(sprint); }}
     >
       <h3 className="text-sm font-semibold mb-3 text-center">
-        {meta.emoji} {meta.label}
+        {def?.emoji} {def?.label ?? sprint}
       </h3>
 
       <div className="space-y-2 mb-3 min-h-[40px]">

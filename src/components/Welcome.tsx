@@ -1,8 +1,12 @@
+import { getActiveSprints } from "../state/store";
+
 type Props = {
   onDismiss: () => void;
 };
 
 export default function Welcome({ onDismiss }: Props) {
+  const sprints = getActiveSprints();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
       <div className="max-w-[560px] text-center">
@@ -18,7 +22,7 @@ export default function Welcome({ onDismiss }: Props) {
               <h2 className="font-semibold text-lg">Night Brief (every evening)</h2>
             </div>
             <p className="text-text-dim text-sm ml-10">
-              Dump everything in your head, pick ONE highlight for tomorrow, and sort tasks into 4 sprint categories. Lock it in, then close the laptop. Takes 5 minutes.
+              Dump everything in your head, pick ONE highlight for tomorrow, and sort tasks into sprint categories. Lock it in, then close the laptop. Takes 5 minutes.
             </p>
           </div>
 
@@ -44,29 +48,21 @@ export default function Welcome({ onDismiss }: Props) {
         </div>
 
         <div className="mb-8">
-          <h3 className="text-sm text-text-dim uppercase tracking-wider mb-3">The 5 sprints</h3>
+          <h3 className="text-sm text-text-dim uppercase tracking-wider mb-3">Your sprints</h3>
           <div className="grid grid-cols-2 gap-3 text-left">
-            <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">🔥 Soberin Revenue</div>
-              <p className="text-text-dim text-xs">Vibe coding, software services, immediate $</p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">🚀 Chief Challengers</div>
-              <p className="text-text-dim text-xs">Everything to build the product</p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">🎤 Personal Brand</div>
-              <p className="text-text-dim text-xs">Content creation, set up meetings, hustle</p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="font-medium mb-1">🎓 Elite Admit</div>
-              <p className="text-text-dim text-xs">Complete Gut's application</p>
-            </div>
-            <div className="bg-surface rounded-lg p-3 col-span-2">
-              <div className="font-medium mb-1">📋 Admin</div>
-              <p className="text-text-dim text-xs">Emails, follow-ups, paperwork, the avoided stuff</p>
-            </div>
+            {sprints.map((sp, i) => (
+              <div
+                key={sp.id}
+                className={`bg-surface rounded-lg p-3 ${sprints.length % 2 === 1 && i === sprints.length - 1 ? "col-span-2" : ""}`}
+              >
+                <div className="font-medium mb-1">{sp.emoji} {sp.label}</div>
+                <p className="text-text-dim text-xs">{sp.description}</p>
+              </div>
+            ))}
           </div>
+          <p className="text-text-dim text-xs mt-2">
+            You can change these anytime in Sprint Settings (top right dropdown).
+          </p>
         </div>
 
         <button

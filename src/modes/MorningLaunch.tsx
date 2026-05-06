@@ -1,6 +1,5 @@
-import { useAppState, recordLaptopOpen, updateLog, getOrCreateLog } from "../state/store";
+import { useAppState, recordLaptopOpen, updateLog, getOrCreateLog, getActiveSprints } from "../state/store";
 import { todayStr, daysAgo } from "../lib/date";
-import { ALL_SPRINTS, SPRINT_META } from "../lib/sprints";
 import type { Sprint } from "../state/types";
 import { useEffect, useMemo } from "react";
 
@@ -13,6 +12,7 @@ export default function MorningLaunch({ onStartSprint }: Props) {
   const today = todayStr();
   const brief = state.briefs[today];
   const log = state.logs[today] || getOrCreateLog(today);
+  const activeSprints = getActiveSprints();
 
   useEffect(() => {
     recordLaptopOpen(today);
@@ -29,16 +29,17 @@ export default function MorningLaunch({ onStartSprint }: Props) {
   }, [state.briefs]);
 
   const taskCounts = useMemo(() => {
-    const counts = Object.fromEntries(ALL_SPRINTS.map((s) => [s, 0])) as Record<Sprint, number>;
+    const counts: Record<string, number> = {};
+    for (const sp of activeSprints) counts[sp.id] = 0;
     if (!brief) return counts;
     for (const id of brief.taskIds) {
       const task = state.tasks[id];
       if (task && task.status === "pending") {
-        counts[task.sprint]++;
+        counts[task.sprint] = (counts[task.sprint] || 0) + 1;
       }
     }
     return counts;
-  }, [brief, state.tasks]);
+  }, [brief, state.tasks, state.sprintDefs]);
 
   const totalPending = Object.values(taskCounts).reduce((a, b) => a + b, 0);
 
@@ -56,7 +57,6 @@ export default function MorningLaunch({ onStartSprint }: Props) {
     });
   }
 
-  // No brief for today
   if (!brief) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
@@ -67,15 +67,15 @@ export default function MorningLaunch({ onStartSprint }: Props) {
         <p className="text-text-dim text-sm mb-8">
           Switch to Night Brief mode (top right dropdown) to plan today, or just pick a sprint below and start working.
         </p>
-        <div className="flex gap-4 mb-6">
-          {ALL_SPRINTS.map((sprint) => (
+        <div className="flex gap-4 mb-6 flex-wrap justify-center">
+          {activeSprints.map((sp) => (
             <button
-              key={sprint}
-              onClick={() => onStartSprint(sprint)}
+              key={sp.id}
+              onClick={() => onStartSprint(sp.id)}
               className="bg-surface border border-border rounded-lg px-6 py-4 hover:border-accent transition-colors text-center"
             >
-              <div className="text-2xl mb-1">{SPRINT_META[sprint].emoji}</div>
-              <div className="text-sm font-medium">{SPRINT_META[sprint].label}</div>
+              <div className="text-2xl mb-1">{sp.emoji}</div>
+              <div className="text-sm font-medium">{sp.label}</div>
             </button>
           ))}
         </div>
@@ -105,17 +105,17 @@ export default function MorningLaunch({ onStartSprint }: Props) {
           : "Pick a sprint to start working."}
       </p>
 
-      <div className="flex gap-4 mb-8">
-        {ALL_SPRINTS.map((sprint) => (
+      <div className="flex gap-4 mb-8 flex-wrap justify-center">
+        {activeSprints.map((sp) => (
           <button
-            key={sprint}
-            onClick={() => onStartSprint(sprint)}
+            key={sp.id}
+            onClick={() => onStartSprint(sp.id)}
             className="bg-surface border border-border rounded-lg px-6 py-4 hover:border-accent transition-colors text-center min-w-[130px]"
           >
-            <div className="text-2xl mb-1">{SPRINT_META[sprint].emoji}</div>
-            <div className="text-sm font-medium">{SPRINT_META[sprint].label}</div>
+            <div className="text-2xl mb-1">{sp.emoji}</div>
+            <div className="text-sm font-medium">{sp.label}</div>
             <div className="text-xs text-text-dim mt-1">
-              {taskCounts[sprint]} task{taskCounts[sprint] !== 1 ? "s" : ""}
+              {taskCounts[sp.id] || 0} task{(taskCounts[sp.id] || 0) !== 1 ? "s" : ""}
             </div>
           </button>
         ))}

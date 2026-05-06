@@ -8,6 +8,7 @@ import NightBrief from "./modes/NightBrief";
 import MorningLaunch from "./modes/MorningLaunch";
 import SprintBoard from "./modes/SprintBoard";
 import StatsView from "./components/StatsView";
+import SprintSettings from "./components/SprintSettings";
 import Welcome from "./components/Welcome";
 import HelpButton from "./components/HelpButton";
 
@@ -65,6 +66,7 @@ export default function App() {
       {mode === "morning_launch" && <MorningLaunch onStartSprint={handleStartSprint} />}
       {mode === "sprint_board" && <SprintBoard onExit={() => setMode("morning_launch")} />}
       {mode === "stats" && <StatsView />}
+      {mode === "sprint_settings" && <SprintSettings />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAppState, exportState, importState, getActiveSprints, getSprintDef } from "../state/store";
 import { daysAgo, todayStr } from "../lib/date";
 
@@ -182,7 +182,14 @@ export default function StatsView() {
       <div className="flex justify-center mt-6">
         <button
           onClick={() => {
-            if (confirm("This will permanently delete ALL your data (tasks, briefs, stats, sprints) and reset the app. Are you sure?")) {
+            if (confirm("This will archive your current data and reset the app to a fresh start. Your old data will be saved and can be restored later. Continue?")) {
+              // Archive current state with timestamp
+              const current = localStorage.getItem("nick_kaizen_state_v1");
+              if (current) {
+                const archives: { date: string; data: string }[] = JSON.parse(localStorage.getItem("nick_kaizen_archives") || "[]");
+                archives.push({ date: new Date().toISOString(), data: current });
+                localStorage.setItem("nick_kaizen_archives", JSON.stringify(archives));
+              }
               localStorage.removeItem("nick_kaizen_state_v1");
               localStorage.removeItem("nick_kaizen_welcomed");
               location.reload();
@@ -193,6 +200,91 @@ export default function StatsView() {
           Reset all data
         </button>
       </div>
+
+      <ArchivesList />
+    </div>
+  );
+}
+
+function ArchivesList() {
+  const [show, setShow] = useState(false);
+  const archives: { date: string; data: string }[] = JSON.parse(
+    localStorage.getItem("nick_kaizen_archives") || "[]"
+  );
+
+  if (archives.length === 0) return null;
+
+  function handleRestore(archive: { date: string; data: string }) {
+    if (confirm(`This will replace your current data with the archive from ${new Date(archive.date).toLocaleString()}. Your current data will be archived first. Continue?`)) {
+      // Archive current state first
+      const current = localStorage.getItem("nick_kaizen_state_v1");
+      if (current) {
+        const allArchives: { date: string; data: string }[] = JSON.parse(localStorage.getItem("nick_kaizen_archives") || "[]");
+        allArchives.push({ date: new Date().toISOString(), data: current });
+        localStorage.setItem("nick_kaizen_archives", JSON.stringify(allArchives));
+      }
+      localStorage.setItem("nick_kaizen_state_v1", archive.data);
+      location.reload();
+    }
+  }
+
+  function handleDelete(index: number) {
+    if (confirm("Permanently delete this archive?")) {
+      const updated = [...archives];
+      updated.splice(index, 1);
+      localStorage.setItem("nick_kaizen_archives", JSON.stringify(updated));
+      location.reload();
+    }
+  }
+
+  function handleDownload(archive: { date: string; data: string }) {
+    const blob = new Blob([archive.data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nick-kaizen-archive-${archive.date.slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="mt-10">
+      <button
+        onClick={() => setShow(!show)}
+        className="text-xs text-text-dim hover:text-text"
+      >
+        {show ? "Hide" : "Show"} past resets ({archives.length})
+      </button>
+
+      {show && (
+        <div className="mt-3 space-y-2">
+          {archives.map((archive, i) => (
+            <div key={i} className="flex items-center gap-3 bg-surface border border-border rounded-lg p-3 text-sm group">
+              <span className="flex-1 text-text-dim">
+                {new Date(archive.date).toLocaleString()}
+              </span>
+              <button
+                onClick={() => handleDownload(archive)}
+                className="text-xs text-text-dim hover:text-text opacity-0 group-hover:opacity-100"
+              >
+                download
+              </button>
+              <button
+                onClick={() => handleRestore(archive)}
+                className="text-xs text-accent hover:text-accent-dim opacity-0 group-hover:opacity-100"
+              >
+                restore
+              </button>
+              <button
+                onClick={() => handleDelete(i)}
+                className="text-xs text-red hover:text-red/80 opacity-0 group-hover:opacity-100"
+              >
+                delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

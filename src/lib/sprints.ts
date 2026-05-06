@@ -5,5 +5,6 @@ export const DEFAULT_SPRINTS: SprintDef[] = [
   { id: "chief_challengers", label: "Chief Challengers", emoji: "\uD83D\uDE80", description: "Everything to build the product", status: "active", archivedAt: null },
   { id: "personal_brand", label: "Personal Brand", emoji: "\uD83C\uDFA4", description: "Content creation, set up meetings, hustle", status: "active", archivedAt: null },
   { id: "elite_admit", label: "Elite Admit", emoji: "\uD83C\uDF93", description: "Complete Gut's application", status: "active", archivedAt: null },
+  { id: "chula_class", label: "Chula Class", emoji: "\uD83C\uDFEB", description: "Chulalongkorn University coursework and classes", status: "active", archivedAt: null },
   { id: "admin", label: "Admin", emoji: "\uD83D\uDCCB", description: "Emails, follow-ups, paperwork, the avoided stuff", status: "active", archivedAt: null },
 ];

@@ -31,6 +31,12 @@ function migrateState(raw: AppState): AppState {
   if (!raw.sprintDefs) {
     raw.sprintDefs = defaultSprintDefs();
   }
+  // Add any new default sprints that don't exist yet
+  for (const d of DEFAULT_SPRINTS) {
+    if (!raw.sprintDefs[d.id]) {
+      raw.sprintDefs[d.id] = d;
+    }
+  }
   return raw;
 }
 

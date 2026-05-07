@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useAppState, startSprintTimer, undo, canUndo } from "./state/store";
+import { useAppState, startSprintTimer, undo, canUndo, heartbeat, getStaleSprintInfo, endStaleSprint, getSprintDef } from "./state/store";
 import { todayStr, tomorrowStr, currentHour } from "./lib/date";
 import type { Sprint } from "./state/types";
 import type { Mode } from "./components/ModeSwitcher";
@@ -21,12 +21,18 @@ function getDefaultMode(hasTodayBrief: boolean, hasTomorrowBrief: boolean): Mode
   return "morning_launch";
 }
 
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function App() {
   const state = useAppState();
   const today = todayStr();
   const tomorrow = tomorrowStr();
   const [welcomed, setWelcomed] = useState(() => localStorage.getItem(WELCOMED_KEY) === "true");
   const [undoToast, setUndoToast] = useState(false);
+  const [staleSprint, setStaleSprint] = useState<{ sprint: string; lastActiveAt: number; startedAt: number } | null>(null);
 
   const defaultMode = useMemo(
     () => getDefaultMode(!!state.briefs[today], !!state.briefs[tomorrow]),
@@ -34,6 +40,21 @@ export default function App() {
   );
 
   const [mode, setMode] = useState<Mode>(defaultMode);
+
+  // Heartbeat: update lastActiveAt every 30 seconds while page is open
+  useEffect(() => {
+    heartbeat(); // immediate on mount
+    const id = setInterval(heartbeat, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Check for stale sprint on mount
+  useEffect(() => {
+    const stale = getStaleSprintInfo();
+    if (stale) {
+      setStaleSprint(stale);
+    }
+  }, []);
 
   const handleUndo = useCallback(() => {
     if (canUndo()) {
@@ -47,7 +68,6 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
-        // Don't intercept if user is typing in an input/textarea
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
@@ -68,8 +88,57 @@ export default function App() {
     setMode("sprint_board");
   }
 
+  function handleEndStaleSprint() {
+    if (staleSprint) {
+      endStaleSprint(staleSprint.lastActiveAt);
+      setStaleSprint(null);
+    }
+  }
+
+  function handleResumeStaleSprint() {
+    // Just dismiss the dialog — sprint keeps running, heartbeat resumes
+    setStaleSprint(null);
+    setMode("sprint_board");
+  }
+
   if (!welcomed) {
     return <Welcome onDismiss={handleDismissWelcome} />;
+  }
+
+  // Stale sprint dialog
+  if (staleSprint) {
+    const def = getSprintDef(staleSprint.sprint);
+    const duration = Math.round((staleSprint.lastActiveAt - staleSprint.startedAt) / 60000);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4">
+        <div className="max-w-[440px] text-center">
+          <h1 className="text-2xl font-bold mb-4">You left a sprint running</h1>
+          <p className="text-text-dim mb-2">
+            {def?.emoji} {def?.label ?? staleSprint.sprint}
+          </p>
+          <p className="text-text-dim text-sm mb-1">
+            Started at {formatTime(staleSprint.startedAt)}
+          </p>
+          <p className="text-text-dim text-sm mb-6">
+            Last active at {formatTime(staleSprint.lastActiveAt)} ({duration} min logged)
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleEndStaleSprint}
+              className="px-4 py-2 rounded-lg bg-accent text-bg font-medium hover:bg-accent-dim"
+            >
+              End sprint ({duration}m)
+            </button>
+            <button
+              onClick={handleResumeStaleSprint}
+              className="px-4 py-2 rounded-lg bg-surface border border-border text-text-dim hover:border-accent"
+            >
+              I'm still working
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

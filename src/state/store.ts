@@ -22,6 +22,7 @@ function defaultState(): AppState {
       sprint: null,
       startedAt: null,
       activeTaskId: null,
+      lastActiveAt: null,
     },
   };
 }
@@ -245,9 +246,10 @@ export function recordLaptopOpen(date: string) {
 // ---- Sprint timer actions ----
 
 export function startSprintTimer(sprint: Sprint) {
+  const now = Date.now();
   update((s) => ({
     ...s,
-    currentSprintTimer: { sprint, startedAt: Date.now(), activeTaskId: null },
+    currentSprintTimer: { sprint, startedAt: now, activeTaskId: null, lastActiveAt: now },
   }));
 }
 
@@ -255,6 +257,41 @@ export function setActiveTask(taskId: string | null) {
   update((s) => ({
     ...s,
     currentSprintTimer: { ...s.currentSprintTimer, activeTaskId: taskId },
+  }));
+}
+
+export function heartbeat() {
+  if (!state.currentSprintTimer.sprint) return;
+  update((s) => ({
+    ...s,
+    currentSprintTimer: { ...s.currentSprintTimer, lastActiveAt: Date.now() },
+  }));
+}
+
+export function getStaleSprintInfo(): { sprint: string; lastActiveAt: number; startedAt: number } | null {
+  const { sprint, lastActiveAt, startedAt } = state.currentSprintTimer;
+  if (!sprint || !lastActiveAt || !startedAt) return null;
+  const gap = Date.now() - lastActiveAt;
+  const THIRTY_MIN = 30 * 60 * 1000;
+  if (gap > THIRTY_MIN) {
+    return { sprint, lastActiveAt, startedAt };
+  }
+  return null;
+}
+
+export function endStaleSprint(_endAt: number) {
+  const { sprint, startedAt } = state.currentSprintTimer;
+  if (!sprint || !startedAt) return;
+  // Figure out which date this sprint belongs to
+  const sprintDate = new Date(startedAt);
+  const dateStr = `${sprintDate.getFullYear()}-${String(sprintDate.getMonth() + 1).padStart(2, "0")}-${String(sprintDate.getDate()).padStart(2, "0")}`;
+  const log = getOrCreateLog(dateStr);
+  if (!log.sprintsWorked.includes(sprint)) {
+    updateLog(dateStr, { sprintsWorked: [...log.sprintsWorked, sprint] });
+  }
+  update((s) => ({
+    ...s,
+    currentSprintTimer: { sprint: null, startedAt: null, activeTaskId: null, lastActiveAt: null },
   }));
 }
 
@@ -281,7 +318,7 @@ export function endSprintTimer(date: string) {
   }
   update((s) => ({
     ...s,
-    currentSprintTimer: { sprint: null, startedAt: null, activeTaskId: null },
+    currentSprintTimer: { sprint: null, startedAt: null, activeTaskId: null, lastActiveAt: null },
   }));
 }
 

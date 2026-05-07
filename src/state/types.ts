@@ -53,5 +53,6 @@ export type AppState = {
     sprint: Sprint | null;
     startedAt: number | null;
     activeTaskId: string | null;
+    lastActiveAt: number | null;
   };
 };

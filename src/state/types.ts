@@ -32,6 +32,7 @@ export type DailyBrief = {
 export type DayLog = {
   date: string;
   laptopOpenedAt: number | null;
+  morningBrainDump: string;
   morningRitual: {
     gym: boolean;
     feed_birds: boolean;
@@ -39,6 +40,7 @@ export type DayLog = {
     consume_art: boolean;
   };
   highlightCompleted: boolean;
+  highlightDeadline: string | null; // "HH:MM" or null
   sprintsWorked: Sprint[];
 };
 

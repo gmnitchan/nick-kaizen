@@ -218,8 +218,10 @@ export function getOrCreateLog(date: string): DayLog {
   const log: DayLog = {
     date,
     laptopOpenedAt: null,
+    morningBrainDump: "",
     morningRitual: { gym: false, feed_birds: false, meditation: false, consume_art: false },
     highlightCompleted: false,
+    highlightDeadline: "16:00",
     sprintsWorked: [],
   };
   update((s) => ({ ...s, logs: { ...s.logs, [date]: log } }));

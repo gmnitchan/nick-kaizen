@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateLog, getOrCreateLog, getActiveSprints, getSprintDef } from "../state/store";
-import { todayStr } from "../lib/date";
+import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateTask, updateLog, getOrCreateLog, getActiveSprints, getSprintDef } from "../state/store";
+import { todayStr, currentHour } from "../lib/date";
 import type { Sprint } from "../state/types";
-import TaskRow from "../components/TaskRow";
 import Timer from "../components/Timer";
 
 type Props = {
@@ -11,24 +10,33 @@ type Props = {
 
 export default function SprintBoard({ onExit }: Props) {
   const state = useAppState();
-  const { sprint, startedAt, activeTaskId } = state.currentSprintTimer;
+  const { sprint, startedAt } = state.currentSprintTimer;
   const today = todayStr();
   const brief = state.briefs[today];
+  const log = state.logs[today];
   const [newText, setNewText] = useState("");
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const lastTickRef = useRef(Date.now());
   const activeSprints = getActiveSprints();
 
+  // Accumulate time across all pending tasks in this sprint proportionally
+  // (simplified: just track sprint-level time, distribute evenly to pending tasks)
   useEffect(() => {
-    if (!activeTaskId || !startedAt) return;
+    if (!sprint || !startedAt) return;
     lastTickRef.current = Date.now();
     const id = setInterval(() => {
       const now = Date.now();
       const delta = (now - lastTickRef.current) / 60000;
       lastTickRef.current = now;
-      accumulateTaskTime(activeTaskId, delta);
-    }, 6000);
+      // Distribute time to all pending tasks in this sprint
+      const pendingTasks = tasks.filter((t) => t.status === "pending");
+      if (pendingTasks.length > 0) {
+        const perTask = delta / pendingTasks.length;
+        pendingTasks.forEach((t) => accumulateTaskTime(t.id, perTask));
+      }
+    }, 15000); // every 15 seconds
     return () => clearInterval(id);
-  }, [activeTaskId, startedAt]);
+  }, [sprint, startedAt, state.tasks]);
 
   const tasks = useMemo(() => {
     if (!brief || !sprint) return [];
@@ -37,8 +45,17 @@ export default function SprintBoard({ onExit }: Props) {
       .filter((t) => t && t.sprint === sprint);
   }, [brief, sprint, state.tasks]);
 
-  const pendingCount = tasks.filter((t) => t.status === "pending").length;
-  const doneCount = tasks.filter((t) => t.status === "done").length;
+  const pendingTasks = tasks.filter((t) => t.status === "pending");
+  const doneTasks = tasks.filter((t) => t.status === "done");
+
+  // Highlight nudge: is it past the deadline and highlight not done?
+  const highlightNudge = useMemo(() => {
+    if (!brief?.highlight || log?.highlightCompleted) return false;
+    const deadline = log?.highlightDeadline || "16:00";
+    const [h, m] = deadline.split(":").map(Number);
+    const now = new Date();
+    return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m);
+  }, [brief, log, currentHour()]);
 
   function handleEnd() {
     if (brief?.highlight) {
@@ -46,13 +63,14 @@ export default function SprintBoard({ onExit }: Props) {
         (t) => t.status === "done" && t.text === brief.highlight
       );
       if (highlightDone) {
-        const log = getOrCreateLog(today);
-        if (!log.highlightCompleted) {
+        const dayLog = getOrCreateLog(today);
+        if (!dayLog.highlightCompleted) {
           updateLog(today, { highlightCompleted: true });
         }
       }
     }
     endSprintTimer(today);
+    setShowEndConfirm(false);
     onExit();
   }
 
@@ -69,6 +87,14 @@ export default function SprintBoard({ onExit }: Props) {
     startSprintTimer(s);
   }
 
+  function handleCheck(taskId: string) {
+    updateTask(taskId, { status: "done", completedAt: Date.now() });
+  }
+
+  function handleSkip(taskId: string) {
+    updateTask(taskId, { status: "skipped" });
+  }
+
   if (!sprint) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -81,11 +107,23 @@ export default function SprintBoard({ onExit }: Props) {
   const def = getSprintDef(sprint);
 
   return (
-    <div className="max-w-[720px] mx-auto py-8 px-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">
+    <div className="max-w-[640px] mx-auto py-8 px-4">
+      {/* Highlight banner */}
+      {brief?.highlight && (
+        <div className={`text-center mb-6 py-3 px-4 rounded-lg ${highlightNudge ? "bg-yellow/10 border border-yellow/40" : "bg-surface/50"}`}>
+          {highlightNudge && (
+            <p className="text-yellow text-xs uppercase tracking-wider mb-1">Have you done your highlight yet?</p>
+          )}
+          <p className={`text-sm ${highlightNudge ? "text-yellow font-medium" : "text-text-dim"}`}>
+            Today's highlight: {brief.highlight}
+          </p>
+        </div>
+      )}
+
+      {/* Sprint header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">
             {def?.emoji} {def?.label ?? sprint}
           </h1>
           <Timer startedAt={startedAt} />
@@ -94,7 +132,7 @@ export default function SprintBoard({ onExit }: Props) {
           <select
             value={sprint}
             onChange={(e) => handleSwitchSprint(e.target.value)}
-            className="bg-surface border border-border rounded px-2 py-1 text-sm text-text-dim focus:outline-none cursor-pointer"
+            className="bg-surface border border-border rounded px-2 py-1 text-xs text-text-dim focus:outline-none cursor-pointer"
           >
             {activeSprints.map((s) => (
               <option key={s.id} value={s.id}>
@@ -103,47 +141,74 @@ export default function SprintBoard({ onExit }: Props) {
             ))}
           </select>
           <button
-            onClick={handleEnd}
-            className="text-sm px-3 py-1 rounded bg-red/20 text-red hover:bg-red/30"
+            onClick={() => setShowEndConfirm(true)}
+            className="text-xs px-2 py-1 rounded bg-border text-text-dim hover:text-text"
           >
-            End sprint
+            Done with sprint
           </button>
         </div>
       </div>
 
-      {/* Status line */}
-      <p className="text-text-dim text-xs mb-6">
-        {pendingCount > 0 && `${pendingCount} remaining`}
-        {pendingCount > 0 && doneCount > 0 && " · "}
-        {doneCount > 0 && `${doneCount} done`}
-        {pendingCount === 0 && doneCount === 0 && "No tasks yet — add one below"}
-        {!activeTaskId && pendingCount > 0 && " · Hit \"Start\" on a task to begin tracking time"}
-      </p>
-
-      {/* Task list */}
-      <div className="space-y-2 mb-4">
-        {tasks.map((task) => (
-          <TaskRow key={task.id} task={task} isActive={task.id === activeTaskId} />
-        ))}
-        {tasks.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-text-dim text-sm mb-2">No tasks in this sprint yet.</p>
-            <p className="text-text-dim text-xs">Type below to add one, or switch to a different sprint.</p>
+      {/* End confirmation */}
+      {showEndConfirm && (
+        <div className="bg-surface border border-border rounded-lg p-4 mb-6 text-center">
+          <p className="text-sm mb-3">End this sprint session?</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={handleEnd} className="text-sm px-4 py-1.5 rounded bg-accent text-bg font-medium hover:bg-accent-dim">
+              Yes, I'm done
+            </button>
+            <button onClick={() => setShowEndConfirm(false)} className="text-sm text-text-dim hover:text-text">
+              Keep going
+            </button>
           </div>
+        </div>
+      )}
+
+      {/* Task checklist - simple, calm */}
+      <div className="space-y-1.5 mb-4">
+        {pendingTasks.map((task) => (
+          <div key={task.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-surface/50 group">
+            <button
+              onClick={() => handleCheck(task.id)}
+              className="w-5 h-5 rounded border-2 border-border group-hover:border-accent shrink-0 flex items-center justify-center"
+            />
+            <span className="flex-1">{task.text}</span>
+            <button
+              onClick={() => handleSkip(task.id)}
+              className="text-xs text-text-dim hover:text-text opacity-0 group-hover:opacity-100"
+            >
+              skip
+            </button>
+          </div>
+        ))}
+
+        {doneTasks.length > 0 && (
+          <div className="pt-3 border-t border-border/50 mt-3">
+            {doneTasks.map((task) => (
+              <div key={task.id} className="flex items-center gap-3 py-1.5 px-3 opacity-40">
+                <span className="w-5 h-5 rounded border-2 border-green bg-green/20 shrink-0 flex items-center justify-center text-green text-xs">
+                  &#10003;
+                </span>
+                <span className="flex-1 line-through">{task.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tasks.length === 0 && (
+          <p className="text-text-dim text-sm text-center py-8">No tasks. Add one below or just flow.</p>
         )}
       </div>
 
-      {/* Inline add */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newText}
-          onChange={(e) => setNewText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-          placeholder="Add a task... (press Enter)"
-          className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
-        />
-      </div>
+      {/* Add task */}
+      <input
+        type="text"
+        value={newText}
+        onChange={(e) => setNewText(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        placeholder="Add a task... (press Enter)"
+        className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
+      />
     </div>
   );
 }

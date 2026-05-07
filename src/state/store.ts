@@ -218,7 +218,7 @@ export function getOrCreateLog(date: string): DayLog {
   const log: DayLog = {
     date,
     laptopOpenedAt: null,
-    morningRitual: { gym: false, light: false, shower: false, ate: false },
+    morningRitual: { gym: false, feed_birds: false, meditation: false, consume_art: false },
     highlightCompleted: false,
     sprintsWorked: [],
   };

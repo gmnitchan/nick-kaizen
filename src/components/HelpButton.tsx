@@ -43,7 +43,7 @@ export default function HelpButton() {
                 <h3 className="font-semibold text-accent mb-1">Morning Launch (morning)</h3>
                 <ul className="text-text-dim space-y-1 list-disc ml-4">
                   <li>Shows your highlight in big text — that's your focus</li>
-                  <li>Check off morning rituals (gym, light, shower, ate)</li>
+                  <li>Check off morning rituals (gym, feed birds, meditation, consume art)</li>
                   <li>Pick a sprint category to start working</li>
                 </ul>
               </div>

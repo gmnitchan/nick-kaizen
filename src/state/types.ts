@@ -34,9 +34,9 @@ export type DayLog = {
   laptopOpenedAt: number | null;
   morningRitual: {
     gym: boolean;
-    light: boolean;
-    shower: boolean;
-    ate: boolean;
+    feed_birds: boolean;
+    meditation: boolean;
+    consume_art: boolean;
   };
   highlightCompleted: boolean;
   sprintsWorked: Sprint[];

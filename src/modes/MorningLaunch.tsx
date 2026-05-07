@@ -43,12 +43,12 @@ export default function MorningLaunch({ onStartSprint }: Props) {
 
   const totalPending = Object.values(taskCounts).reduce((a, b) => a + b, 0);
 
-  const ritualKeys = ["gym", "light", "shower", "ate"] as const;
+  const ritualKeys = ["gym", "feed_birds", "meditation", "consume_art"] as const;
   const ritualLabels: Record<string, string> = {
     gym: "Gym",
-    light: "Sunlight",
-    shower: "Shower",
-    ate: "Ate",
+    feed_birds: "Feed Birds",
+    meditation: "Meditation",
+    consume_art: "Consume Art",
   };
 
   function toggleRitual(key: typeof ritualKeys[number]) {

@@ -185,6 +185,12 @@ export function moveTaskToSprint(id: string, sprint: Sprint) {
 
 // ---- Brief actions ----
 
+export function getLatestBrief(): DailyBrief | null {
+  const dates = Object.keys(state.briefs).sort().reverse();
+  if (dates.length === 0) return null;
+  return state.briefs[dates[0]];
+}
+
 export function getOrCreateBrief(date: string): DailyBrief {
   if (state.briefs[date]) return state.briefs[date];
   const brief: DailyBrief = {

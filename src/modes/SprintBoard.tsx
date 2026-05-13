@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateTask, updateLog, getOrCreateLog, getActiveSprints, getSprintDef } from "../state/store";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useAppState, endSprintTimer, startSprintTimer, accumulateTaskTime, addTask, addTaskToBrief, updateTask, updateLog, getOrCreateLog, getActiveSprints, getSprintDef, getLatestBrief } from "../state/store";
 import { todayStr, currentHour } from "../lib/date";
 import type { Sprint } from "../state/types";
 import Timer from "../components/Timer";
+
+const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes of no interaction = idle
 
 type Props = {
   onExit: () => void;
@@ -12,29 +14,62 @@ export default function SprintBoard({ onExit }: Props) {
   const state = useAppState();
   const { sprint, startedAt } = state.currentSprintTimer;
   const today = todayStr();
-  const brief = state.briefs[today];
+  const brief = getLatestBrief();
   const log = state.logs[today];
   const [newText, setNewText] = useState("");
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
+  const lastInteractionRef = useRef(Date.now());
   const lastTickRef = useRef(Date.now());
   const activeSprints = getActiveSprints();
 
-  // Accumulate time across all pending tasks in this sprint proportionally
-  // (simplified: just track sprint-level time, distribute evenly to pending tasks)
+  // Track user interaction (mouse, keyboard, clicks)
+  const markActive = useCallback(() => {
+    lastInteractionRef.current = Date.now();
+    if (isIdle) setIsIdle(false);
+  }, [isIdle]);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", markActive);
+    window.addEventListener("keydown", markActive);
+    window.addEventListener("click", markActive);
+    return () => {
+      window.removeEventListener("mousemove", markActive);
+      window.removeEventListener("keydown", markActive);
+      window.removeEventListener("click", markActive);
+    };
+  }, [markActive]);
+
+  // Check for idle every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => {
+      const gap = Date.now() - lastInteractionRef.current;
+      if (gap > IDLE_TIMEOUT) {
+        setIsIdle(true);
+      }
+    }, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Accumulate time ONLY when user is active
   useEffect(() => {
     if (!sprint || !startedAt) return;
     lastTickRef.current = Date.now();
     const id = setInterval(() => {
+      // Skip accumulation if idle
+      if (Date.now() - lastInteractionRef.current > IDLE_TIMEOUT) {
+        lastTickRef.current = Date.now();
+        return;
+      }
       const now = Date.now();
       const delta = (now - lastTickRef.current) / 60000;
       lastTickRef.current = now;
-      // Distribute time to all pending tasks in this sprint
-      const pendingTasks = tasks.filter((t) => t.status === "pending");
-      if (pendingTasks.length > 0) {
-        const perTask = delta / pendingTasks.length;
-        pendingTasks.forEach((t) => accumulateTaskTime(t.id, perTask));
+      const pending = tasks.filter((t) => t.status === "pending");
+      if (pending.length > 0) {
+        const perTask = delta / pending.length;
+        pending.forEach((t) => accumulateTaskTime(t.id, perTask));
       }
-    }, 15000); // every 15 seconds
+    }, 15000);
     return () => clearInterval(id);
   }, [sprint, startedAt, state.tasks]);
 
@@ -48,7 +83,6 @@ export default function SprintBoard({ onExit }: Props) {
   const pendingTasks = tasks.filter((t) => t.status === "pending");
   const doneTasks = tasks.filter((t) => t.status === "done");
 
-  // Highlight nudge: is it past the deadline and highlight not done?
   const highlightNudge = useMemo(() => {
     if (!brief?.highlight || log?.highlightCompleted) return false;
     const deadline = log?.highlightDeadline || "16:00";
@@ -76,9 +110,9 @@ export default function SprintBoard({ onExit }: Props) {
 
   function handleAdd() {
     const text = newText.trim();
-    if (!text || !sprint) return;
+    if (!text || !sprint || !brief) return;
     const task = addTask(text, sprint);
-    addTaskToBrief(today, task.id);
+    addTaskToBrief(brief.date, task.id);
     setNewText("");
   }
 
@@ -115,7 +149,7 @@ export default function SprintBoard({ onExit }: Props) {
             <p className="text-yellow text-xs uppercase tracking-wider mb-1">Have you done your highlight yet?</p>
           )}
           <p className={`text-sm ${highlightNudge ? "text-yellow font-medium" : "text-text-dim"}`}>
-            Today's highlight: {brief.highlight}
+            Highlight: {brief.highlight}
           </p>
         </div>
       )}
@@ -127,6 +161,9 @@ export default function SprintBoard({ onExit }: Props) {
             {def?.emoji} {def?.label ?? sprint}
           </h1>
           <Timer startedAt={startedAt} />
+          {isIdle && (
+            <span className="text-xs text-yellow px-2 py-0.5 rounded bg-yellow/10">paused — idle</span>
+          )}
         </div>
         <div className="flex gap-2">
           <select
@@ -164,7 +201,7 @@ export default function SprintBoard({ onExit }: Props) {
         </div>
       )}
 
-      {/* Task checklist - simple, calm */}
+      {/* Task checklist */}
       <div className="space-y-1.5 mb-4">
         {pendingTasks.map((task) => (
           <div key={task.id} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-surface/50 group">

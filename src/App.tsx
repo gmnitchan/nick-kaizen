@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAppState, startSprintTimer, undo, canUndo, heartbeat, getStaleSprintInfo, endStaleSprint, getSprintDef } from "./state/store";
-import { todayStr, tomorrowStr, currentHour } from "./lib/date";
+// todayStr removed — no longer needed here
 import type { Sprint } from "./state/types";
 import type { Mode } from "./components/ModeSwitcher";
 import ModeSwitcher from "./components/ModeSwitcher";
@@ -14,36 +14,23 @@ import HelpButton from "./components/HelpButton";
 
 const WELCOMED_KEY = "nick_kaizen_welcomed";
 
-function getDefaultMode(hasTodayBrief: boolean, hasTomorrowBrief: boolean): Mode {
-  const hour = currentHour();
-  if (hour >= 20 || !hasTomorrowBrief) return "night_brief";
-  if (hour < 11 && hasTodayBrief) return "morning_launch";
-  return "morning_launch";
-}
-
 function formatTime(ts: number): string {
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function App() {
-  const state = useAppState();
-  const today = todayStr();
-  const tomorrow = tomorrowStr();
+  useAppState(); // subscribe to re-renders on state changes
   const [welcomed, setWelcomed] = useState(() => localStorage.getItem(WELCOMED_KEY) === "true");
   const [undoToast, setUndoToast] = useState(false);
   const [staleSprint, setStaleSprint] = useState<{ sprint: string; lastActiveAt: number; startedAt: number } | null>(null);
 
-  const defaultMode = useMemo(
-    () => getDefaultMode(!!state.briefs[today], !!state.briefs[tomorrow]),
-    [] // only compute once on mount
-  );
+  // Always start on morning_launch — user picks their mode
+  const [mode, setMode] = useState<Mode>("morning_launch");
 
-  const [mode, setMode] = useState<Mode>(defaultMode);
-
-  // Heartbeat: update lastActiveAt every 30 seconds while page is open
+  // Heartbeat
   useEffect(() => {
-    heartbeat(); // immediate on mount
+    heartbeat();
     const id = setInterval(heartbeat, 30000);
     return () => clearInterval(id);
   }, []);
@@ -51,9 +38,7 @@ export default function App() {
   // Check for stale sprint on mount
   useEffect(() => {
     const stale = getStaleSprintInfo();
-    if (stale) {
-      setStaleSprint(stale);
-    }
+    if (stale) setStaleSprint(stale);
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -64,7 +49,6 @@ export default function App() {
     }
   }, []);
 
-  // Cmd+Z / Ctrl+Z listener
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
@@ -96,7 +80,6 @@ export default function App() {
   }
 
   function handleResumeStaleSprint() {
-    // Just dismiss the dialog — sprint keeps running, heartbeat resumes
     setStaleSprint(null);
     setMode("sprint_board");
   }
@@ -105,7 +88,6 @@ export default function App() {
     return <Welcome onDismiss={handleDismissWelcome} />;
   }
 
-  // Stale sprint dialog
   if (staleSprint) {
     const def = getSprintDef(staleSprint.sprint);
     const duration = Math.round((staleSprint.lastActiveAt - staleSprint.startedAt) / 60000);
@@ -123,16 +105,10 @@ export default function App() {
             Last active at {formatTime(staleSprint.lastActiveAt)} ({duration} min logged)
           </p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={handleEndStaleSprint}
-              className="px-4 py-2 rounded-lg bg-accent text-bg font-medium hover:bg-accent-dim"
-            >
+            <button onClick={handleEndStaleSprint} className="px-4 py-2 rounded-lg bg-accent text-bg font-medium hover:bg-accent-dim">
               End sprint ({duration}m)
             </button>
-            <button
-              onClick={handleResumeStaleSprint}
-              className="px-4 py-2 rounded-lg bg-surface border border-border text-text-dim hover:border-accent"
-            >
+            <button onClick={handleResumeStaleSprint} className="px-4 py-2 rounded-lg bg-surface border border-border text-text-dim hover:border-accent">
               I'm still working
             </button>
           </div>
@@ -143,27 +119,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      {/* Top bar */}
       <div className="fixed top-0 right-0 p-4 z-50 flex items-center gap-3">
-        <button
-          onClick={handleUndo}
-          disabled={!canUndo()}
-          className="text-xs text-text-dim hover:text-text disabled:opacity-20 disabled:cursor-default"
-          title="Undo (Cmd+Z)"
-        >
+        <button onClick={handleUndo} disabled={!canUndo()} className="text-xs text-text-dim hover:text-text disabled:opacity-20 disabled:cursor-default" title="Undo (Cmd+Z)">
           undo
         </button>
         <HelpButton />
-        <button
-          onClick={() => setMode("stats")}
-          className="text-xs text-text-dim hover:text-text"
-        >
-          stats
-        </button>
+        <button onClick={() => setMode("stats")} className="text-xs text-text-dim hover:text-text">stats</button>
         <ModeSwitcher current={mode} onChange={setMode} />
       </div>
 
-      {/* Undo toast */}
       {undoToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-surface border border-border rounded-lg px-4 py-2 text-sm text-text shadow-lg">
           Undone

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAppState, recordLaptopOpen, updateLog, getOrCreateLog, getActiveSprints } from "../state/store";
+import { useAppState, recordLaptopOpen, updateLog, getOrCreateLog, getActiveSprints, getLatestBrief } from "../state/store";
 import { todayStr, daysAgo } from "../lib/date";
 import type { Sprint } from "../state/types";
 import { useEffect, useMemo } from "react";
@@ -11,7 +11,7 @@ type Props = {
 export default function MorningLaunch({ onStartSprint }: Props) {
   const state = useAppState();
   const today = todayStr();
-  const brief = state.briefs[today];
+  const brief = getLatestBrief();
   const log = state.logs[today] || getOrCreateLog(today);
   const activeSprints = getActiveSprints();
   const [brainDump, setBrainDump] = useState(log.morningBrainDump || "");
@@ -66,12 +66,12 @@ export default function MorningLaunch({ onStartSprint }: Props) {
   if (!brief) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <h1 className="text-3xl font-bold mb-4">No brief for today</h1>
+        <h1 className="text-3xl font-bold mb-4">No brief yet</h1>
         <p className="text-text-dim text-lg mb-2">
-          You didn't file a Night Brief last night.
+          You haven't filed a Night Brief yet.
         </p>
         <p className="text-text-dim text-sm mb-8">
-          Switch to Night Brief mode (top right dropdown) to plan today, or just pick a sprint below and start working.
+          Switch to Night Brief (top right) to plan your day, or just pick a sprint and start working.
         </p>
         <p className="text-text-dim text-xs uppercase tracking-wider mb-3">What energy are you in?</p>
         <div className="flex gap-4 mb-6 flex-wrap justify-center">
@@ -100,12 +100,20 @@ export default function MorningLaunch({ onStartSprint }: Props) {
       )}
 
       <p className="text-text-dim text-xs uppercase tracking-wider mb-3">
-        Today's highlight
+        Your highlight
       </p>
 
-      <h1 className="text-5xl font-bold mb-6 text-center max-w-[800px] leading-tight">
+      <h1 className="text-5xl font-bold mb-3 text-center max-w-[800px] leading-tight">
         {brief.highlight || "No highlight set"}
       </h1>
+
+      {brief.date !== today && (
+        <p className="text-text-dim text-xs mb-6">
+          From your {brief.date} brief
+        </p>
+      )}
+
+      {brief.date === today && <div className="mb-6" />}
 
       {/* Morning brain dump */}
       {showBrainDump && (
@@ -119,10 +127,7 @@ export default function MorningLaunch({ onStartSprint }: Props) {
             rows={3}
           />
           <div className="flex justify-end mt-2">
-            <button
-              onClick={saveBrainDump}
-              className="text-xs text-accent hover:text-accent-dim"
-            >
+            <button onClick={saveBrainDump} className="text-xs text-accent hover:text-accent-dim">
               {brainDump.trim() ? "Done, let it go" : "Skip"}
             </button>
           </div>
@@ -130,15 +135,12 @@ export default function MorningLaunch({ onStartSprint }: Props) {
       )}
 
       {!showBrainDump && !log.morningBrainDump && (
-        <button
-          onClick={() => setShowBrainDump(true)}
-          className="text-xs text-text-dim hover:text-text mb-6"
-        >
+        <button onClick={() => setShowBrainDump(true)} className="text-xs text-text-dim hover:text-text mb-6">
           Clear your head first?
         </button>
       )}
 
-      {/* Sprint picker - energy based */}
+      {/* Sprint picker */}
       <p className="text-text-dim text-xs uppercase tracking-wider mb-3">What energy are you in?</p>
       <div className="flex gap-4 mb-8 flex-wrap justify-center">
         {activeSprints.map((sp) => (
